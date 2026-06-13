@@ -11,7 +11,7 @@ const sermonValidation = [
 
 const getSermons = async (req, res, next) => {
   try {
-    const { search, preacher, church, year, series, page = 1, limit = 10 } = req.query;
+    const { search, preacher, church, year, page = 1, limit = 10 } = req.query;
     const filter = {};
 
     if (search) filter.$text = { $search: search };
@@ -20,7 +20,6 @@ const getSermons = async (req, res, next) => {
     if (year) {
       filter.date = { $gte: new Date(`${year}-01-01`), $lte: new Date(`${year}-12-31T23:59:59`) };
     }
-    if (series) filter.series = { $regex: series, $options: 'i' };
 
     const skip = (Number(page) - 1) * Number(limit);
     const total = await Sermon.countDocuments(filter);
@@ -48,17 +47,15 @@ const getSermon = async (req, res, next) => {
 
 const getSermonMeta = async (req, res, next) => {
   try {
-    const [preachers, churches, seriesList] = await Promise.all([
+    const [preachers, churches] = await Promise.all([
       Sermon.distinct('preacher'),
       Sermon.distinct('church'),
-      Sermon.distinct('series'),
     ]);
     res.json({
       success: true,
       data: {
         preachers: preachers.filter(Boolean).sort(),
         churches: churches.filter(Boolean).sort(),
-        series: seriesList.filter(Boolean).sort(),
       },
     });
   } catch (error) {
@@ -119,4 +116,54 @@ const deleteSermon = async (req, res, next) => {
   }
 };
 
-module.exports = { getSermons, getSermon, getSermonMeta, createSermon, updateSermon, deleteSermon, sermonValidation };
+// Create a full sermon from an AI-processed SermonJob
+const createFromAI = async (req, res, next) => {
+  try {
+    const { jobId, title, preacher, date, scriptureReferences, summary, church, audioUrl, video } = req.body;
+
+    if (!jobId) return res.status(400).json({ success: false, message: 'jobId is required' });
+    if (!title) return res.status(400).json({ success: false, message: 'title is required' });
+    if (!preacher) return res.status(400).json({ success: false, message: 'preacher is required' });
+    if (!date) return res.status(400).json({ success: false, message: 'date is required' });
+
+    const SermonJob = require('../models/SermonJob');
+    const job = await SermonJob.findById(jobId);
+    if (!job) return res.status(404).json({ success: false, message: 'Processing job not found' });
+    if (job.status !== 'completed') {
+      return res.status(422).json({ success: false, message: 'Job has not completed successfully yet' });
+    }
+
+    const resolvedChurch =
+      req.user.role !== 'super_admin' ? req.scopedChurchName : church || 'P.C.E.A Emmanuel Thome Church';
+
+    // Map AI sections to the existing sermon content schema
+    const sections = job.aiResult.sections || [];
+    const intro = sections.find((s) => s.type === 'introduction');
+    const conclusion = sections.find((s) => s.type === 'conclusion');
+    const points = sections
+      .filter((s) => s.type === 'point')
+      .map((s) => ({ title: s.title, description: s.content, verses: s.scripture }));
+
+    const sermon = await Sermon.create({
+      title,
+      preacher,
+      date,
+      church: resolvedChurch,
+      scriptureReferences: scriptureReferences || job.aiResult.keyVerses || [],
+      summary: summary || job.aiResult.summary || '',
+      audioUrl: audioUrl || job.sourceFileUrl || '',
+      video: video || null,
+      content: {
+        introduction: intro ? intro.content : '',
+        points,
+        conclusion: conclusion ? conclusion.content : '',
+      },
+    });
+
+    res.status(201).json({ success: true, data: sermon });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { getSermons, getSermon, getSermonMeta, createSermon, updateSermon, deleteSermon, sermonValidation, createFromAI };

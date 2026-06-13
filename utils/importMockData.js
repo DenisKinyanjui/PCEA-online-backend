@@ -2,7 +2,6 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const connectDB = require('../config/db');
 const Sermon = require('../models/Sermon');
-const Series = require('../models/Series');
 
 const mockSermons = [
   {
@@ -10,7 +9,6 @@ const mockSermons = [
     preacher: 'Rev. James Kariuki',
     church: 'P.C.E.A Emmanuel Thome Church',
     date: new Date('2026-01-14'),
-    series: 'Journey of Faith',
     scriptureReferences: ['Hebrews 11:1', 'Proverbs 3:5-6', '2 Corinthians 5:7', 'Psalm 77:11-12', 'Hebrews 10:24-25'],
     summary: "An encouraging message about maintaining faith during life's storms and trusting in God's perfect plan.",
     audioUrl: 'https://res.cloudinary.com/dppwytw0u/video/upload/v1771625140/2021-02-07_-_Week_5___Objections_to_Eternal_Security_The_Gospels___Secure_-_John_T._Clark_220262118345501_ejvv5c.mp3',
@@ -30,7 +28,6 @@ const mockSermons = [
     preacher: 'Rev. Sarah Muthoni',
     church: 'P.C.E.A Siloam Kimbo Church',
     date: new Date('2026-01-21'),
-    series: 'Spiritual Disciplines',
     scriptureReferences: ['Philippians 4:6-7', 'Matthew 6:6-8', 'Hebrews 4:16'],
     summary: 'Discovering the transformative power of prayer and developing a deeper relationship with God through consistent communication.',
     audioUrl: 'https://res.cloudinary.com/dppwytw0u/video/upload/v1771625140/2021-02-07_-_Week_5___Objections_to_Eternal_Security_The_Gospels___Secure_-_John_T._Clark_220262118345501_ejvv5c.mp3',
@@ -50,7 +47,6 @@ const mockSermons = [
     preacher: 'Rev. Michael Kamau',
     church: 'P.C.E.A Canaan Church',
     date: new Date('2026-01-28'),
-    series: 'Living Like Jesus',
     scriptureReferences: ['1 Samuel 16:7', 'James 2:1-9', 'John 15:13'],
     summary: 'Exploring what it means to genuinely love others as Christ loved us, moving beyond words to action.',
     audioUrl: 'https://res.cloudinary.com/dppwytw0u/video/upload/v1771625140/2021-02-07_-_Week_5___Objections_to_Eternal_Security_The_Gospels___Secure_-_John_T._Clark_220262118345501_ejvv5c.mp3',
@@ -70,7 +66,6 @@ const mockSermons = [
     preacher: 'Rev. David Mwangi',
     church: 'P.C.E.A Ruiru Town Church',
     date: new Date('2026-02-04'),
-    series: 'Anchored in Truth',
     scriptureReferences: ['Isaiah 41:10', 'Deuteronomy 31:6', 'Jeremiah 29:11'],
     summary: "Finding courage and peace by standing on the unchanging promises of God in a world filled with uncertainty.",
     audioUrl: 'https://res.cloudinary.com/dppwytw0u/video/upload/v1771625140/2021-02-07_-_Week_5___Objections_to_Eternal_Security_The_Gospels___Secure_-_John_T._Clark_220262118345501_ejvv5c.mp3',
@@ -89,7 +84,6 @@ const mockSermons = [
     preacher: 'Rev. Emily Wanjiku',
     church: 'P.C.E.A Murera Church',
     date: new Date('2026-02-11'),
-    series: 'Kingdom Living',
     scriptureReferences: ['John 3:16', '2 Corinthians 9:6-11', 'Proverbs 11:24-25'],
     summary: "Understanding how generosity reflects God's heart and discovering the unexpected joy that comes from giving.",
     audioUrl: 'https://res.cloudinary.com/dppwytw0u/video/upload/v1771625140/2021-02-07_-_Week_5___Objections_to_Eternal_Security_The_Gospels___Secure_-_John_T._Clark_220262118345501_ejvv5c.mp3',
@@ -108,7 +102,6 @@ const mockSermons = [
     preacher: 'Rev. James Kariuki',
     church: 'P.C.E.A Emmanuel Thome Church',
     date: new Date('2026-02-18'),
-    series: 'Journey of Faith',
     scriptureReferences: ['Ecclesiastes 3:1-8', 'Psalm 27:14', 'Philippians 4:11-13'],
     summary: "Discovering God's purpose for your current season of life and learning to bloom where you're planted.",
     audioUrl: 'https://res.cloudinary.com/dppwytw0u/video/upload/v1771625140/2021-02-07_-_Week_5___Objections_to_Eternal_Security_The_Gospels___Secure_-_John_T._Clark_220262118345501_ejvv5c.mp3',
@@ -127,7 +120,6 @@ const mockSermons = [
     preacher: 'Rev. Sarah Muthoni',
     church: 'P.C.E.A Siloam Kimbo Church',
     date: new Date('2026-02-25'),
-    series: 'Spiritual Disciplines',
     scriptureReferences: ['Psalm 34:1-3', 'Revelation 4:11', '2 Corinthians 3:18'],
     summary: "Exploring how true worship transforms our hearts and realigns our perspective with God's eternal truth.",
     audioUrl: 'https://res.cloudinary.com/dppwytw0u/video/upload/v1771625140/2021-02-07_-_Week_5___Objections_to_Eternal_Security_The_Gospels___Secure_-_John_T._Clark_220262118345501_ejvv5c.mp3',
@@ -147,7 +139,6 @@ const mockSermons = [
     preacher: 'Rev. Michael Kamau',
     church: 'P.C.E.A Canaan Church',
     date: new Date('2026-01-03'),
-    series: 'Living Like Jesus',
     scriptureReferences: ['Romans 5:8', 'Ephesians 2:8-9', 'Titus 2:11-12'],
     summary: "Understanding the depth of God's grace and how it meets us in our brokenness to bring healing and restoration.",
     audioUrl: 'https://res.cloudinary.com/dppwytw0u/video/upload/v1771625140/2021-02-07_-_Week_5___Objections_to_Eternal_Security_The_Gospels___Secure_-_John_T._Clark_220262118345501_ejvv5c.mp3',
@@ -166,7 +157,6 @@ const mockSermons = [
     preacher: 'Rev. David Mwangi',
     church: 'P.C.E.A Ruiru Town Church',
     date: new Date('2025-12-10'),
-    series: 'Anchored in Truth',
     scriptureReferences: ['Matthew 7:24-27', '1 Corinthians 3:11', 'Joshua 1:8'],
     summary: 'Learning to build our lives on the solid foundation of Christ and His Word for lasting stability.',
     audioUrl: 'https://res.cloudinary.com/dppwytw0u/video/upload/v1771625140/2021-02-07_-_Week_5___Objections_to_Eternal_Security_The_Gospels___Secure_-_John_T._Clark_220262118345501_ejvv5c.mp3',
@@ -185,7 +175,6 @@ const mockSermons = [
     preacher: 'Rev. Emily Wanjiku',
     church: 'P.C.E.A Murera Church',
     date: new Date('2025-03-17'),
-    series: 'Kingdom Living',
     scriptureReferences: ['Philippians 3:20', 'Matthew 6:19-21', '2 Corinthians 5:10'],
     summary: 'Discovering how an eternal perspective changes our priorities and transforms how we live each day.',
     audioUrl: 'https://res.cloudinary.com/dppwytw0u/video/upload/v1771625140/2021-02-07_-_Week_5___Objections_to_Eternal_Security_The_Gospels___Secure_-_John_T._Clark_220262118345501_ejvv5c.mp3',
@@ -201,21 +190,8 @@ const mockSermons = [
   },
 ];
 
-const seriesData = [
-  { name: 'Journey of Faith', description: 'A series on faith in everyday life' },
-  { name: 'Spiritual Disciplines', description: 'Building spiritual habits that transform us' },
-  { name: 'Living Like Jesus', description: 'Practical Christianity in a modern world' },
-  { name: 'Anchored in Truth', description: "Standing firm on God's promises" },
-  { name: 'Kingdom Living', description: "Living as citizens of God's kingdom" },
-];
-
 const importMockData = async () => {
   await connectDB();
-
-  console.log('Ensuring series exist...');
-  for (const s of seriesData) {
-    await Series.findOneAndUpdate({ name: s.name }, s, { upsert: true, new: true });
-  }
 
   console.log('Importing sermons (skipping duplicates)...');
   let inserted = 0;

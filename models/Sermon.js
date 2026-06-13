@@ -42,11 +42,6 @@ const sermonSchema = new mongoose.Schema(
       type: Date,
       required: [true, 'Sermon date is required'],
     },
-    series: {
-      type: String,
-      trim: true,
-      default: '',
-    },
     scriptureReferences: [{ type: String, trim: true }],
     content: {
       type: sermonContentSchema,

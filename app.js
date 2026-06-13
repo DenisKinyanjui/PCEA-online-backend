@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
-const path = require('path');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -50,9 +49,6 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 }
 
-// Static files (uploaded audio / attachments)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({
@@ -68,7 +64,6 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/churches', require('./routes/churches'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/sermons', require('./routes/sermons'));
-app.use('/api/series', require('./routes/series'));
 app.use('/api/uploads', require('./routes/uploads'));
 
 // 404 handler for unmatched routes

@@ -1,7 +1,6 @@
 const { body } = require('express-validator');
 const Church = require('../models/Church');
 const Sermon = require('../models/Sermon');
-const Series = require('../models/Series');
 const validate = require('../middleware/validate');
 
 const churchValidation = [
