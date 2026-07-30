@@ -6,15 +6,24 @@ const errorHandler = require('./middleware/errorHandler');
 const app = express();
 
 // CORS
-const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
+const defaultOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'https://pcea.netlify.app',
+  'https://www.pcea.netlify.app',
+  'https://pcea-online-backend.vercel.app',
+];
+
+const allowedOrigins = (process.env.CORS_ORIGINS || defaultOrigins.join(','))
   .split(',')
-  .map((o) => o.trim());
+  .map((o) => o.trim())
+  .filter(Boolean);
 
 // Wildcard subdomain patterns, e.g. "*.lvh.me:5173" or "*.pceaonlineministry.com".
 // The * must be at the start and represents one subdomain segment ([a-z0-9-]+).
 // Strategy: split on '*', escape the suffix's dots, build a regex.
 //   "*.lvh.me:5173" → suffix ".lvh.me:5173" → /^https?:\/\/[a-z0-9-]+\.lvh\.me:5173$/
-const subdomainPatterns = (process.env.CORS_SUBDOMAIN_PATTERNS || '')
+const subdomainPatterns = (process.env.CORS_SUBDOMAIN_PATTERNS || '*.netlify.app,*.vercel.app')
   .split(',')
   .map((p) => p.trim())
   .filter(Boolean)
