@@ -79,4 +79,21 @@ const sermonSchema = new mongoose.Schema(
 // Text index for full-text search on title, preacher, and transcript content
 sermonSchema.index({ title: 'text', preacher: 'text', 'content.introduction': 'text', 'content.conclusion': 'text', summary: 'text' });
 
+// Media uploaded to R2 is stored under the private R2 endpoint, which browsers can't read.
+// For those, add a path (relative to the API base) to the streaming route in
+// sermonController.streamSermonMedia. Public links (YouTube, Cloudinary, …) get null.
+sermonSchema.set('toJSON', {
+  transform: (doc, ret) => {
+    const { r2KeyFromUrl } = require('../services/r2UploadService');
+    ret.audioPath = r2KeyFromUrl(ret.audioUrl) ? `/sermons/${ret._id}/media/audio` : null;
+    if (ret.video) {
+      ret.video.path = ret.video.type === 'file' && r2KeyFromUrl(ret.video.url)
+        ? `/sermons/${ret._id}/media/video`
+        : null;
+    }
+    delete ret.__v;
+    return ret;
+  },
+});
+
 module.exports = mongoose.model('Sermon', sermonSchema);

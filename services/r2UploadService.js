@@ -1,4 +1,4 @@
-const { PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const path = require('path');
 const crypto = require('crypto');
 const { r2Client, R2_BUCKET } = require('../config/r2');
@@ -52,4 +52,28 @@ async function downloadFromR2AsBuffer(key) {
   return Buffer.concat(chunks);
 }
 
-module.exports = { uploadToR2, downloadFromR2AsBuffer };
+// Returns the raw GetObject response so callers can stream `Body` (e.g. to an HTTP response).
+// `range` is an HTTP Range header value (e.g. "bytes=0-") for partial reads — audio/video seeking.
+async function getR2Object(key, { range } = {}) {
+  return r2Client.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: key, ...(range && { Range: range }) }));
+}
+
+// URLs from uploadToR2 point at the private R2 API endpoint, which browsers can't read.
+// Returns the object key for such a URL, or null for any other (public) URL.
+function r2KeyFromUrl(url) {
+  if (!url) return null;
+  const prefix = `${buildPublicUrl('')}`;
+  return url.startsWith(prefix) && url.length > prefix.length ? url.slice(prefix.length) : null;
+}
+
+// Best-effort delete — a leftover object is harmless, so failures are logged, not thrown.
+async function deleteFromR2(key) {
+  if (!key) return;
+  try {
+    await r2Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: key }));
+  } catch (err) {
+    console.warn(`[R2] Failed to delete "${key}": ${err.message}`);
+  }
+}
+
+module.exports = { uploadToR2, downloadFromR2AsBuffer, getR2Object, deleteFromR2, r2KeyFromUrl };

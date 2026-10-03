@@ -1,9 +1,12 @@
 const path = require('path');
 const SermonJob = require('../models/SermonJob');
-const { transcribeAudio, generateSermonStructure } = require('./openaiService');
+const { transcribeMedia, generateSermonStructure } = require('./ai');
+const { validateSermonStructure } = require('./ai/validateSermonStructure');
 const { downloadFromR2AsBuffer } = require('./r2UploadService');
+const { toAsrChunks } = require('./extractAudio');
 
-const VALID_SECTION_TYPES = new Set(['introduction', 'point', 'conclusion']);
+// Pause between ASR segment requests so a long sermon doesn't trip MiMo's rate limit
+const ASR_SEGMENT_DELAY_MS = Number(process.env.ASR_SEGMENT_DELAY_MS || 3000);
 
 async function extractDocumentText(buffer, filename) {
   const ext = path.extname(filename).toLowerCase();
@@ -55,13 +58,32 @@ async function runPipeline(jobId) {
       const fileKey = job.sourceFileKey;
       if (!fileKey) throw new Error('No R2 file key found on job — cannot download file');
 
+      const downloadStart = Date.now();
       const buffer = await downloadFromR2AsBuffer(fileKey);
+      console.log(
+        `[AI Pipeline] Job ${jobId} — downloaded ${(buffer.length / (1024 * 1024)).toFixed(2)} MB from R2 in ${Date.now() - downloadStart}ms (${job.sourceFileType}, ${job.sourceMimeType || 'unknown mime'})`
+      );
 
-      if (job.sourceFileType === 'audio') {
-        rawText = await transcribeAudio(buffer, job.originalFileName);
+      const aiStart = Date.now();
+      if (job.sourceFileType === 'audio' || job.sourceFileType === 'video') {
+        // Full sermons blow past ASR's 10 MB payload cap, so transcribe a
+        // compact MP3 of the audio track in fixed-length segments and join them.
+        const chunks = await toAsrChunks(buffer, job.originalFileName);
+        const totalMb = chunks.reduce((sum, c) => sum + c.length, 0) / (1024 * 1024);
+        console.log(`[AI Pipeline] Job ${jobId} — prepared ${chunks.length} audio segment(s), ${totalMb.toFixed(2)} MB total`);
+
+        const parts = [];
+        for (let i = 0; i < chunks.length; i++) {
+          // Sequential and paced on purpose: keeps us clear of MiMo rate limits
+          if (i > 0) await new Promise((resolve) => setTimeout(resolve, ASR_SEGMENT_DELAY_MS));
+          parts.push(await transcribeMedia(chunks[i], `segment-${i + 1}.mp3`, 'audio/mpeg'));
+          console.log(`[AI Pipeline] Job ${jobId} — transcribed segment ${i + 1}/${chunks.length}`);
+        }
+        rawText = parts.join('\n\n');
       } else {
         rawText = await extractDocumentText(buffer, job.originalFileName);
       }
+      console.log(`[AI Pipeline] Job ${jobId} — transcription/extraction finished in ${Date.now() - aiStart}ms (${rawText.length} chars)`);
 
       job.rawTranscript = rawText;
       await setStage(job, 'transcribing', 'done');
@@ -78,7 +100,8 @@ async function runPipeline(jobId) {
 
     let aiResult;
     try {
-      aiResult = await generateSermonStructure(rawText, job.userPrompt);
+      const rawAiResult = await generateSermonStructure(rawText, job.userPrompt);
+      aiResult = validateSermonStructure(rawAiResult);
       await setStage(job, 'analyzing', 'done');
       await setStage(job, 'structuring', 'done');
     } catch (err) {
@@ -91,18 +114,7 @@ async function runPipeline(jobId) {
     await setStage(job, 'saving', 'processing');
 
     try {
-      job.aiResult = {
-        titleSuggestions: Array.isArray(aiResult.titleSuggestions) ? aiResult.titleSuggestions : [],
-        summary: aiResult.summary || '',
-        sections: (Array.isArray(aiResult.sections) ? aiResult.sections : []).map((s) => ({
-          type: VALID_SECTION_TYPES.has(s.type) ? s.type : 'point',
-          title: s.title || '',
-          content: s.content || '',
-          scripture: Array.isArray(s.scripture) ? s.scripture : [],
-        })),
-        keyThemes: Array.isArray(aiResult.keyThemes) ? aiResult.keyThemes : [],
-        keyVerses: Array.isArray(aiResult.keyVerses) ? aiResult.keyVerses : [],
-      };
+      job.aiResult = aiResult;
 
       await setStage(job, 'saving', 'done');
       job.status = 'completed';

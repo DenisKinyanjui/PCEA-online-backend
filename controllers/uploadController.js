@@ -2,14 +2,24 @@ const multer = require('multer');
 const { MulterError } = multer;
 const { uploadToR2 } = require('../services/r2UploadService');
 
-const ALLOWED_AUDIO = ['audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/ogg'];
+// Includes the MIME variants browsers report for phone recordings (M4A/AAC)
+// and WAV. Any of these works for AI transcription: the pipeline re-encodes
+// all audio to MP3 with ffmpeg first (services/extractAudio.js).
+const ALLOWED_AUDIO = [
+  'audio/mpeg', 'audio/mp3',
+  'audio/mp4', 'audio/x-m4a', 'audio/m4a', 'audio/aac',
+  'audio/wav', 'audio/x-wav', 'audio/wave',
+  'audio/ogg', 'audio/webm',
+];
 const ALLOWED_DOCS = [
   'application/pdf',
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'text/plain',
 ];
-const ALLOWED_ALL = new Set([...ALLOWED_AUDIO, ...ALLOWED_DOCS]);
+// Video is only accepted by the AI pipeline — its audio track is extracted for ASR
+const ALLOWED_VIDEO = ['video/mp4', 'video/webm', 'video/quicktime'];
+const ALLOWED_ALL = new Set([...ALLOWED_AUDIO, ...ALLOWED_DOCS, ...ALLOWED_VIDEO]);
 
 const fileFilter = (req, file, cb) => {
   if (ALLOWED_ALL.has(file.mimetype)) {
@@ -85,7 +95,8 @@ const uploadAttachment = [
 
 // ── AI pipeline upload ────────────────────────────────────────────────────────
 
-// Step 1: Upload file to R2, create SermonJob, return jobId (does NOT call OpenAI yet)
+
+// Step 1: Upload file to R2, create SermonJob, return jobId (does NOT call the AI provider yet)
 const aiUpload = [
   (req, res, next) => {
     upload.single('file')(req, res, async (err) => {
@@ -93,13 +104,15 @@ const aiUpload = [
       if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
 
       const isAudio = ALLOWED_AUDIO.includes(req.file.mimetype);
+      const isVideo = ALLOWED_VIDEO.includes(req.file.mimetype);
+      const fileType = isAudio ? 'audio' : isVideo ? 'video' : 'document';
 
       try {
         const { key, url } = await uploadToR2(
           req.file.buffer,
           req.file.originalname,
           req.file.mimetype,
-          isAudio ? 'audio' : 'documents'
+          { audio: 'audio', video: 'video', document: 'documents' }[fileType]
         );
 
         const SermonJob = require('../models/SermonJob');
@@ -111,7 +124,8 @@ const aiUpload = [
         const job = await SermonJob.create({
           sourceFileUrl: url,
           sourceFileKey: key,
-          sourceFileType: isAudio ? 'audio' : 'document',
+          sourceFileType: fileType,
+          sourceMimeType: req.file.mimetype,
           originalFileName: req.file.originalname,
           userPrompt: '',
           church,
@@ -123,7 +137,7 @@ const aiUpload = [
           success: true,
           jobId: job._id,
           fileUrl: url,
-          fileType: isAudio ? 'audio' : 'document',
+          fileType,
           originalFileName: req.file.originalname,
         });
       } catch (e) {

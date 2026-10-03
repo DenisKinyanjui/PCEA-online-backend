@@ -2,10 +2,12 @@ const express = require('express');
 const router = express.Router();
 const {
   getSermons, getSermon, getSermonMeta, createSermon, updateSermon, deleteSermon, sermonValidation, createFromAI,
+  streamSermonMedia,
 } = require('../controllers/sermonController');
 const { protect, authorize, churchScope } = require('../middleware/auth');
 
 router.get('/meta', getSermonMeta);
+router.get('/:id/media/:kind', streamSermonMedia); // public: R2-hosted audio/video, Range-aware
 router.post(
   '/from-ai',
   protect,

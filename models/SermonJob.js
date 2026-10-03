@@ -25,7 +25,8 @@ const sermonJobSchema = new mongoose.Schema(
     sourceFileUrl: { type: String, required: true },
     sourceFileKey: { type: String, default: '' },  // R2 object key for internal download
     sourceFilePath: { type: String, default: '' },  // kept for backwards-compat; no longer used
-    sourceFileType: { type: String, enum: ['audio', 'document'], required: true },
+    sourceFileType: { type: String, enum: ['audio', 'video', 'document'], required: true },
+    sourceMimeType: { type: String, default: '' },
     originalFileName: { type: String, default: '' },
     userPrompt: { type: String, default: '' },
     church: { type: String, default: '' },
@@ -53,6 +54,8 @@ const sermonJobSchema = new mongoose.Schema(
       sections: [aiSectionSchema],
       keyThemes: [{ type: String }],
       keyVerses: [{ type: String }],
+      tags: [{ type: String }],
+      seriesSuggestion: { type: String, default: '' },
     },
   },
   { timestamps: true }

@@ -1,6 +1,7 @@
 const { body, query } = require('express-validator');
 const Sermon = require('../models/Sermon');
 const validate = require('../middleware/validate');
+const { getR2Object, r2KeyFromUrl } = require('../services/r2UploadService');
 
 const sermonValidation = [
   body('title').trim().notEmpty().withMessage('Title is required'),
@@ -47,8 +48,12 @@ const getSermon = async (req, res, next) => {
 
 const getSermonMeta = async (req, res, next) => {
   try {
+    // Optional ?church= scopes the preacher list to one church
+    const filter = {};
+    if (req.query.church) filter.church = { $regex: req.query.church, $options: 'i' };
+
     const [preachers, churches] = await Promise.all([
-      Sermon.distinct('preacher'),
+      Sermon.distinct('preacher', filter),
       Sermon.distinct('church'),
     ]);
     res.json({
@@ -116,6 +121,48 @@ const deleteSermon = async (req, res, next) => {
   }
 };
 
+// GET /api/sermons/:id/media/:kind (kind = audio | video)
+// Streams R2-hosted sermon media. Supports HTTP Range so players can seek.
+const streamSermonMedia = async (req, res, next) => {
+  try {
+    const { kind } = req.params;
+    if (kind !== 'audio' && kind !== 'video') {
+      return res.status(404).json({ success: false, message: 'Media not found' });
+    }
+
+    const sermon = await Sermon.findById(req.params.id).select('audioUrl video');
+    const url = kind === 'audio' ? sermon?.audioUrl : sermon?.video?.url;
+    const key = r2KeyFromUrl(url);
+    if (!key) return res.status(404).json({ success: false, message: 'Media not found' });
+
+    const range = req.headers.range;
+    const object = await getR2Object(key, { range });
+
+    res.status(range && object.ContentRange ? 206 : 200);
+    res.set({
+      'Content-Type': object.ContentType || (kind === 'audio' ? 'audio/mpeg' : 'video/mp4'),
+      'Accept-Ranges': 'bytes',
+      // Play inline instead of the attachment disposition set at upload time
+      'Content-Disposition': 'inline',
+      'Cache-Control': 'public, max-age=86400',
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+    });
+    if (object.ContentLength != null) res.set('Content-Length', String(object.ContentLength));
+    if (object.ContentRange) res.set('Content-Range', object.ContentRange);
+
+    object.Body.on('error', next);
+    object.Body.pipe(res);
+  } catch (error) {
+    if (error.name === 'NoSuchKey') {
+      return res.status(404).json({ success: false, message: 'Media not found' });
+    }
+    if (error.name === 'InvalidRange' || error.$metadata?.httpStatusCode === 416) {
+      return res.status(416).end();
+    }
+    next(error);
+  }
+};
+
 // Create a full sermon from an AI-processed SermonJob
 const createFromAI = async (req, res, next) => {
   try {
@@ -151,8 +198,10 @@ const createFromAI = async (req, res, next) => {
       church: resolvedChurch,
       scriptureReferences: scriptureReferences || job.aiResult.keyVerses || [],
       summary: summary || job.aiResult.summary || '',
-      audioUrl: audioUrl || job.sourceFileUrl || '',
-      video: video || null,
+      // The uploaded file becomes the sermon's player: audio → audio, video → video.
+      // Documents (PDF/DOCX) have no playable media.
+      audioUrl: audioUrl || (job.sourceFileType === 'audio' ? job.sourceFileUrl : '') || '',
+      video: video || (job.sourceFileType === 'video' ? { type: 'file', url: job.sourceFileUrl } : null),
       content: {
         introduction: intro ? intro.content : '',
         points,
@@ -166,4 +215,4 @@ const createFromAI = async (req, res, next) => {
   }
 };
 
-module.exports = { getSermons, getSermon, getSermonMeta, createSermon, updateSermon, deleteSermon, sermonValidation, createFromAI };
+module.exports = { getSermons, getSermon, getSermonMeta, createSermon, updateSermon, deleteSermon, sermonValidation, createFromAI, streamSermonMedia };

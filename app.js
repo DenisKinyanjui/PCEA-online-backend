@@ -5,6 +5,10 @@ const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
+// Behind the hosting provider's proxy: use the first X-Forwarded-For hop as
+// req.ip so rate limits apply per visitor, not to the proxy's address.
+app.set('trust proxy', 1);
+
 // CORS
 const defaultOrigins = [
   'http://localhost:5173',
@@ -74,6 +78,9 @@ app.use('/api/churches', require('./routes/churches'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/sermons', require('./routes/sermons'));
 app.use('/api/uploads', require('./routes/uploads'));
+app.use('/api/announcements', require('./routes/announcements'));
+app.use('/api/youth-messages', require('./routes/youthMessages'));
+app.use('/api/chat', require('./routes/chat'));
 
 // 404 handler for unmatched routes
 app.use((req, res) => {
