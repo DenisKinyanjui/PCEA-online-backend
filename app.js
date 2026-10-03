@@ -15,6 +15,7 @@ const defaultOrigins = [
   'http://localhost:5174',
   'https://pcea.netlify.app',
   'https://www.pcea.netlify.app',
+  'https://adminpcea.netlify.app',
   'https://pcea-online-backend.vercel.app',
 ];
 
