@@ -10,6 +10,14 @@ const userValidation = [
   validate,
 ];
 
+const updateUserValidation = [
+  body('name').optional().trim().notEmpty().withMessage('Name cannot be empty'),
+  body('email').optional().isEmail().withMessage('Valid email is required'),
+  body('password').optional().isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
+  body('role').optional().isIn(['super_admin', 'church_admin', 'transcriptionist']).withMessage('Invalid role'),
+  validate,
+];
+
 const formatUser = (user) => ({
   id: user._id,
   name: user.name,
@@ -116,4 +124,4 @@ const deleteUser = async (req, res, next) => {
   }
 };
 
-module.exports = { getUsers, createUser, updateUser, deleteUser, userValidation };
+module.exports = { getUsers, createUser, updateUser, deleteUser, userValidation, updateUserValidation };
