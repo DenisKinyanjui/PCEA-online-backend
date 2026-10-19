@@ -23,14 +23,22 @@ const getSermons = async (req, res, next) => {
     }
 
     const skip = (Number(page) - 1) * Number(limit);
-    const total = await Sermon.countDocuments(filter);
-    const sermons = await Sermon.find(filter)
-      .sort({ date: -1 })
-      .skip(skip)
-      .limit(Number(limit))
-      .select('-content -__v');
+    const [total, preacherNames, sermons] = await Promise.all([
+      Sermon.countDocuments(filter),
+      Sermon.distinct('preacher', filter),
+      Sermon.find(filter)
+        .sort({ date: -1 })
+        .skip(skip)
+        .limit(Number(limit))
+        .select('-content -__v'),
+    ]);
+    const totalPreachers = new Set(
+      preacherNames
+        .filter((name) => typeof name === 'string' && name.trim())
+        .map((name) => name.trim().replace(/\s+/g, ' ').toLowerCase())
+    ).size;
 
-    res.json({ success: true, total, page: Number(page), pages: Math.ceil(total / Number(limit)), data: sermons });
+    res.json({ success: true, total, totalPreachers, page: Number(page), pages: Math.ceil(total / Number(limit)), data: sermons });
   } catch (error) {
     next(error);
   }
