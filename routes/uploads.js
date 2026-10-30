@@ -4,6 +4,7 @@ const rateLimit = require('express-rate-limit');
 const {
   uploadAudio,
   uploadAttachment,
+  uploadPreacherPhoto,
   aiUpload,
   triggerAIProcess,
   getAIStatus,
@@ -21,6 +22,12 @@ const aiProcessLimiter = rateLimit({
 // Existing routes
 router.post('/audio', protect, authorize('admin', 'transcriptionist'), uploadAudio);
 router.post('/attachment', protect, authorize('admin', 'transcriptionist'), uploadAttachment);
+router.post(
+  '/preacher-photo',
+  protect,
+  authorize('super_admin', 'church_admin', 'transcriptionist'),
+  uploadPreacherPhoto
+);
 
 // AI pipeline routes
 router.post(

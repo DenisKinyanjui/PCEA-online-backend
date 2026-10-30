@@ -10,7 +10,9 @@
     "import:mockdata": "node utils/importMockData.js",
     "add:admin": "node utils/addAdmin.js",
     "seed:churches": "node utils/seedChurches.js",
-    "test:mimo": "node utils/testMimoConnectivity.js"
+    "seed:site-content": "node utils/seedSiteContent.js",
+    "test:mimo": "node utils/testMimoConnectivity.js",
+    "test": "node --test"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1063.0",

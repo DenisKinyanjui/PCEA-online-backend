@@ -75,13 +75,17 @@ app.get('/api/health', (req, res) => {
 
 // API routes
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/districts', require('./routes/districts'));
+app.use('/api/members', require('./routes/members'));
 app.use('/api/churches', require('./routes/churches'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/sermons', require('./routes/sermons'));
 app.use('/api/uploads', require('./routes/uploads'));
 app.use('/api/announcements', require('./routes/announcements'));
 app.use('/api/youth-messages', require('./routes/youthMessages'));
+app.use('/api/content', require('./routes/content'));
 app.use('/api/chat', require('./routes/chat'));
+app.use('/api/quiz', require('./routes/quiz'));
 
 // 404 handler for unmatched routes
 app.use((req, res) => {

@@ -42,7 +42,7 @@ const path = require('path');
 
 const MIMO_BASE_URL = (process.env.MIMO_BASE_URL || 'https://api.xiaomimimo.com/v1').replace(/\/$/, '');
 const MIMO_ASR_MODEL = process.env.MIMO_ASR_MODEL || 'mimo-v2.5-asr';
-const MIMO_ANALYSIS_MODEL = process.env.MIMO_ANALYSIS_MODEL || 'mimo-v2.5';
+const MIMO_ANALYSIS_MODEL = process.env.MIMO_ANALYSIS_MODEL || 'mimo-v2.6-flash';
 const MIMO_ASR_LANGUAGE = process.env.MIMO_ASR_LANGUAGE || 'auto';
 const REQUEST_TIMEOUT_MS = Number(process.env.MIMO_TIMEOUT_MS || 120000);
 const MAX_RETRIES = Number(process.env.MIMO_MAX_RETRIES || 2);
@@ -359,6 +359,8 @@ You help visitors:
 
 Guidelines:
 - Base answers about sermons ONLY on the sermon material provided below. If it does not contain the answer, say so honestly — never invent sermon titles, dates, preachers, or quotes.
+- Answer questions about districts, district counts, elders, or deacons only from the official active district records provided below. Treat the listed records as complete; never invent, infer, or contradict district names or counts.
+- Do not look up, infer, or disclose information about ordinary church members or membership records. If asked for member details, politely explain that you can only help with church leadership information.
 - Quote Bible references in "Book Chapter:Verse" form.
 - Be warm, humble, and concise (usually under 150 words). Write plain text with short paragraphs or simple "-" lists; do not use markdown headings, bold, or tables.
 - For personal crises, grief, or requests for prayer, respond with compassion and encourage the visitor to speak with a pastor or elder of the church. If someone may be in danger, urge them to contact local emergency services.
@@ -377,7 +379,7 @@ async function generateChatReply(messages, context = '') {
     {
       model: MIMO_ANALYSIS_MODEL,
       messages: [{ role: 'system', content: systemContent }, ...messages],
-      max_completion_tokens: 800,
+      max_completion_tokens: 400,
       temperature: 0.5,
       // Reasoning off: keeps replies fast and stops the model spending its
       // token budget on reasoning_content (see generateSermonStructure).

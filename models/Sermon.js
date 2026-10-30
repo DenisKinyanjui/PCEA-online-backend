@@ -38,6 +38,11 @@ const sermonSchema = new mongoose.Schema(
       required: [true, 'Preacher name is required'],
       trim: true,
     },
+    preacherPhotoUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     date: {
       type: Date,
       required: [true, 'Sermon date is required'],
@@ -86,6 +91,9 @@ sermonSchema.set('toJSON', {
   transform: (doc, ret) => {
     const { r2KeyFromUrl } = require('../services/r2UploadService');
     ret.audioPath = r2KeyFromUrl(ret.audioUrl) ? `/sermons/${ret._id}/media/audio` : null;
+    ret.preacherPhotoPath = r2KeyFromUrl(ret.preacherPhotoUrl)
+      ? `/sermons/${ret._id}/media/preacher-photo`
+      : null;
     if (ret.video) {
       ret.video.path = ret.video.type === 'file' && r2KeyFromUrl(ret.video.url)
         ? `/sermons/${ret._id}/media/video`

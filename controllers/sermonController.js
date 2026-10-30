@@ -76,6 +76,58 @@ const getSermonMeta = async (req, res, next) => {
   }
 };
 
+const getPreacherProfiles = async (req, res, next) => {
+  try {
+    const filter = {
+      preacher: { $type: 'string', $ne: '' },
+    };
+    if (req.user.role !== 'super_admin') {
+      filter.church = req.scopedChurchName;
+    } else if (req.query.church) {
+      filter.church = { $regex: req.query.church, $options: 'i' };
+    }
+
+    const profiles = await Sermon.aggregate([
+      { $match: filter },
+      {
+        $addFields: {
+          hasPreacherPhoto: {
+            $cond: [
+              { $ne: [{ $ifNull: ['$preacherPhotoUrl', ''] }, ''] },
+              1,
+              0,
+            ],
+          },
+        },
+      },
+      { $sort: { preacher: 1, hasPreacherPhoto: -1, updatedAt: -1 } },
+      {
+        $group: {
+          _id: '$preacher',
+          preacher: { $first: '$preacher' },
+          preacherPhotoUrl: { $first: { $ifNull: ['$preacherPhotoUrl', ''] } },
+          sermonId: { $first: '$_id' },
+        },
+      },
+      { $sort: { preacher: 1 } },
+      { $project: { _id: 0, preacher: 1, preacherPhotoUrl: 1, sermonId: 1 } },
+    ]);
+
+    res.json({
+      success: true,
+      data: profiles.map((profile) => ({
+        preacher: profile.preacher,
+        preacherPhotoUrl: profile.preacherPhotoUrl,
+        preacherPhotoPath: r2KeyFromUrl(profile.preacherPhotoUrl)
+          ? `/sermons/${profile.sermonId}/media/preacher-photo`
+          : null,
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const createSermon = async (req, res, next) => {
   try {
     const body = { ...req.body };
@@ -129,27 +181,31 @@ const deleteSermon = async (req, res, next) => {
   }
 };
 
-// GET /api/sermons/:id/media/:kind (kind = audio | video)
+// GET /api/sermons/:id/media/:kind (kind = audio | video | preacher-photo)
 // Streams R2-hosted sermon media. Supports HTTP Range so players can seek.
 const streamSermonMedia = async (req, res, next) => {
   try {
     const { kind } = req.params;
-    if (kind !== 'audio' && kind !== 'video') {
+    if (!['audio', 'video', 'preacher-photo'].includes(kind)) {
       return res.status(404).json({ success: false, message: 'Media not found' });
     }
 
-    const sermon = await Sermon.findById(req.params.id).select('audioUrl video');
-    const url = kind === 'audio' ? sermon?.audioUrl : sermon?.video?.url;
+    const sermon = await Sermon.findById(req.params.id).select('audioUrl video preacherPhotoUrl');
+    const url = kind === 'audio'
+      ? sermon?.audioUrl
+      : kind === 'video' ? sermon?.video?.url : sermon?.preacherPhotoUrl;
     const key = r2KeyFromUrl(url);
     if (!key) return res.status(404).json({ success: false, message: 'Media not found' });
 
-    const range = req.headers.range;
+    const range = kind === 'preacher-photo' ? undefined : req.headers.range;
     const object = await getR2Object(key, { range });
 
     res.status(range && object.ContentRange ? 206 : 200);
     res.set({
-      'Content-Type': object.ContentType || (kind === 'audio' ? 'audio/mpeg' : 'video/mp4'),
-      'Accept-Ranges': 'bytes',
+      'Content-Type': object.ContentType || (
+        kind === 'audio' ? 'audio/mpeg' : kind === 'video' ? 'video/mp4' : 'image/jpeg'
+      ),
+      ...(kind !== 'preacher-photo' && { 'Accept-Ranges': 'bytes' }),
       // Play inline instead of the attachment disposition set at upload time
       'Content-Disposition': 'inline',
       'Cache-Control': 'public, max-age=86400',
@@ -174,7 +230,10 @@ const streamSermonMedia = async (req, res, next) => {
 // Create a full sermon from an AI-processed SermonJob
 const createFromAI = async (req, res, next) => {
   try {
-    const { jobId, title, preacher, date, scriptureReferences, summary, church, audioUrl, video } = req.body;
+    const {
+      jobId, title, preacher, preacherPhotoUrl, date,
+      scriptureReferences, summary, church, audioUrl, video,
+    } = req.body;
 
     if (!jobId) return res.status(400).json({ success: false, message: 'jobId is required' });
     if (!title) return res.status(400).json({ success: false, message: 'title is required' });
@@ -202,6 +261,7 @@ const createFromAI = async (req, res, next) => {
     const sermon = await Sermon.create({
       title,
       preacher,
+      preacherPhotoUrl: preacherPhotoUrl || '',
       date,
       church: resolvedChurch,
       scriptureReferences: scriptureReferences || job.aiResult.keyVerses || [],
@@ -223,4 +283,15 @@ const createFromAI = async (req, res, next) => {
   }
 };
 
-module.exports = { getSermons, getSermon, getSermonMeta, createSermon, updateSermon, deleteSermon, sermonValidation, createFromAI, streamSermonMedia };
+module.exports = {
+  getSermons,
+  getSermon,
+  getSermonMeta,
+  getPreacherProfiles,
+  createSermon,
+  updateSermon,
+  deleteSermon,
+  sermonValidation,
+  createFromAI,
+  streamSermonMedia,
+};

@@ -20,6 +20,16 @@ const ALLOWED_DOCS = [
 // Video is only accepted by the AI pipeline — its audio track is extracted for ASR
 const ALLOWED_VIDEO = ['video/mp4', 'video/webm', 'video/quicktime'];
 const ALLOWED_ALL = new Set([...ALLOWED_AUDIO, ...ALLOWED_DOCS, ...ALLOWED_VIDEO]);
+const ALLOWED_PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+
+const preacherPhotoUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
+    if (ALLOWED_PHOTO_TYPES.has(file.mimetype)) return cb(null, true);
+    cb(new Error('Preacher photos must be JPG, PNG, or WEBP files'));
+  },
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
 
 const fileFilter = (req, file, cb) => {
   if (ALLOWED_ALL.has(file.mimetype)) {
@@ -90,6 +100,34 @@ const uploadAttachment = [
         next(e);
       }
     });
+  },
+];
+
+const uploadPreacherPhoto = [
+  (req, res, next) => {
+    preacherPhotoUpload.single('photo')(req, res, (err) => {
+      if (err) {
+        const message = err.code === 'LIMIT_FILE_SIZE'
+          ? 'Preacher photos must be 5 MB or smaller'
+          : err.message || 'Invalid photo upload';
+        return res.status(400).json({ success: false, message });
+      }
+      if (!req.file) return res.status(400).json({ success: false, message: 'No photo uploaded' });
+      next();
+    });
+  },
+  async (req, res, next) => {
+    try {
+      const { url } = await uploadToR2(
+        req.file.buffer,
+        req.file.originalname,
+        req.file.mimetype,
+        'preacher-photos'
+      );
+      res.json({ success: true, url });
+    } catch (error) {
+      next(error);
+    }
   },
 ];
 
@@ -216,4 +254,4 @@ const getAIStatus = async (req, res, next) => {
   }
 };
 
-module.exports = { uploadAudio, uploadAttachment, aiUpload, triggerAIProcess, getAIStatus };
+module.exports = { uploadAudio, uploadAttachment, uploadPreacherPhoto, aiUpload, triggerAIProcess, getAIStatus };

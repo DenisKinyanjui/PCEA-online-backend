@@ -1,13 +1,21 @@
 const express = require('express');
 const router = express.Router();
 const {
-  getSermons, getSermon, getSermonMeta, createSermon, updateSermon, deleteSermon, sermonValidation, createFromAI,
+  getSermons, getSermon, getSermonMeta, getPreacherProfiles,
+  createSermon, updateSermon, deleteSermon, sermonValidation, createFromAI,
   streamSermonMedia,
 } = require('../controllers/sermonController');
 const { protect, authorize, churchScope } = require('../middleware/auth');
 
 router.get('/meta', getSermonMeta);
-router.get('/:id/media/:kind', streamSermonMedia); // public: R2-hosted audio/video, Range-aware
+router.get(
+  '/preacher-profiles',
+  protect,
+  authorize('super_admin', 'church_admin', 'transcriptionist'),
+  churchScope,
+  getPreacherProfiles
+);
+router.get('/:id/media/:kind', streamSermonMedia); // public: R2-hosted audio/video/photo
 router.post(
   '/from-ai',
   protect,

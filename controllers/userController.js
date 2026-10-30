@@ -31,7 +31,7 @@ const formatUser = (user) => ({
 
 const getUsers = async (req, res, next) => {
   try {
-    const filter = {};
+    const filter = { role: { $ne: 'member' } };
     // church_admin can only see users in their church
     if (req.user.role === 'church_admin') {
       filter.church = req.user.church._id;
@@ -72,6 +72,9 @@ const updateUser = async (req, res, next) => {
 
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (user.role === 'member') {
+      return res.status(403).json({ success: false, message: 'Manage member accounts through member management' });
+    }
 
     // Prevent demoting the last super_admin
     if (user.role === 'super_admin' && role && role !== 'super_admin') {
@@ -104,6 +107,9 @@ const deleteUser = async (req, res, next) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    if (user.role === 'member') {
+      return res.status(403).json({ success: false, message: 'Manage member accounts through member management' });
+    }
 
     // Cannot delete yourself
     if (user._id.toString() === req.user._id.toString()) {
